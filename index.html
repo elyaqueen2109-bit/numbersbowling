@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bowling Numbers 11-20</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1024px;
+            max-height: 576px;
+            background: #16213e;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+            border-radius: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            #gameContainer {
+                width: 100vw;
+                height: 56.25vw;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #topBar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.7);
+            pointer-events: auto;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+        }
+
+        #scoreDisplay { 
+            font-size: 16px; 
+            font-weight: 700; 
+            color: #ffd93d; 
+            text-shadow: 0 0 20px rgba(255,217,61,0.5); 
+            transition: transform 0.3s;
+        }
+        #scoreDisplay.bump { animation: scoreBump 0.5s; }
+        
+        @keyframes scoreBump {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1); }
+        }
+
+        #verbCounter { font-size: 14px; font-weight: 600; color: #fff; }
+
+        #levelProgressBar {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70%;
+            max-width: 500px;
+            height: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            z-index: 10;
+            pointer-events: none;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+        }
+
+        #levelFill {
+            height: 100%;
+            background: #00ff88;
+            border-radius: 10px;
+            transition: width 0.5s ease, background 0.5s ease, box-shadow 0.5s ease;
+            width: 0%;
+            box-shadow: 0 0 20px #00ff88;
+        }
+
+        #levelMarkers {
+            position: absolute;
+            top: -20px;
+            left: 0;
+            right: 0;
+            height: 15px;
+        }
+
+        .marker {
+            position: absolute;
+            transform: translateX(-50%);
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.5);
+            white-space: nowrap;
+            transition: all 0.5s ease;
+        }
+
+        .marker.active {
+            font-size: 13px;
+            color: #fff;
+            text-shadow: 0 0 15px currentColor;
+        }
+
+        #comboDisplay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 70px;
+            font-weight: 900;
+            color: #ff6b6b;
+            text-shadow: 0 0 40px rgba(255,107,107,0.9), 0 0 80px rgba(255,107,107,0.5);
+            z-index: 40;
+            display: none;
+            pointer-events: none;
+            animation: comboAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes comboAppear {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            30% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+            60% { transform: translate(-50%, -50%) scale(0.95); }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        #scorePopup {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            font-weight: 900;
+            color: #ffd93d;
+            text-shadow: 0 0 30px rgba(255,217,61,0.9), 0 0 60px rgba(255,217,61,0.5), 0 4px 8px rgba(0,0,0,0.5);
+            z-index: 35;
+            display: none;
+            pointer-events: none;
+            animation: scorePopupAnim 1.2s ease-out forwards;
+        }
+
+        @keyframes scorePopupAnim {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            60% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -100%) scale(0.8); opacity: 0; }
+        }
+
+        #recordPopup {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 50px;
+            font-weight: 900;
+            color: #ffd93d;
+            text-shadow: 0 0 40px rgba(255,217,61,0.9), 0 0 80px rgba(255,217,61,0.5);
+            z-index: 45;
+            display: none;
+            pointer-events: none;
+            animation: recordPopupAnim 1.5s ease-out forwards;
+        }
+
+        @keyframes recordPopupAnim {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            30% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+            60% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -100%) scale(1); opacity: 0; }
+        }
+
+        #levelUpPopup {
+            position: absolute;
+            top: 35%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 45;
+            display: none;
+            pointer-events: none;
+            text-align: center;
+            animation: levelUpAnim 2s ease-out forwards;
+        }
+
+        @keyframes levelUpAnim {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            20% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+            70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -100%) scale(1); opacity: 0; }
+        }
+
+        #levelUpPopup .level-title {
+            font-size: 40px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 30px currentColor;
+        }
+        #levelUpPopup .level-name {
+            font-size: 60px;
+            font-weight: 900;
+            text-shadow: 0 0 40px currentColor;
+        }
+        #levelUpPopup .level-bonus {
+            font-size: 30px;
+            font-weight: 700;
+            color: #ffd93d;
+            text-shadow: 0 0 20px rgba(255,217,61,0.8);
+        }
+
+        #mascotVideo {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 60;
+            display: none;
+            pointer-events: none;
+            border-radius: 20px;
+            box-shadow: 0 0 60px rgba(255,107,107,0.6);
+            animation: mascotAppear 0.5s ease-out;
+        }
+
+        @keyframes mascotAppear {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        #mascotVideo video {
+            border-radius: 20px;
+            display: block;
+            width: 500px;
+            height: 500px;
+        }
+
+        #messagePopup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            font-weight: 800;
+            pointer-events: none;
+            z-index: 30;
+            display: none;
+            text-shadow: 0 0 30px rgba(0,0,0,0.5);
+            animation: popupAnim 0.8s ease-out forwards;
+        }
+
+        @keyframes popupAnim {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            30% { transform: translate(-50%, -60%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -80%) scale(1); opacity: 0; }
+        }
+
+        #cardContainer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 380px;
+            display: none;
+            z-index: 20;
+            pointer-events: auto;
+            animation: cardAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes cardAppear {
+            0% { transform: translate(-50%, -40%) scale(0.7); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 24px;
+            padding: 24px 20px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(118,75,162,0.4);
+            border: 3px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card-verb { 
+            font-size: 48px; 
+            font-weight: 800; 
+            color: #fff; 
+            margin-bottom: 8px; 
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3); 
+            letter-spacing: 2px;
+        }
+        .card-hint { font-size: 14px; color: #ffe0a0; margin-bottom: 12px; min-height: 20px; font-weight: 600; }
+
+        .card-input {
+            width: 100%;
+            padding: 14px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            outline: none;
+            font-family: inherit;
+            margin-bottom: 12px;
+            transition: 0.3s;
+            letter-spacing: 2px;
+        }
+        .card-input::placeholder { color: rgba(255,255,255,0.5); letter-spacing: 0; font-size: 16px; }
+        .card-input:focus { border-color: #ffd93d; box-shadow: 0 0 30px rgba(255,217,61,0.3); }
+        .card-input.correct { border-color: #4ade80; background: rgba(74,222,128,0.2); }
+        .card-input.wrong { border-color: #ff5252; background: rgba(255,82,82,0.2); animation: wrongShake 0.5s; }
+
+        @keyframes wrongShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-10px)} 75%{transform:translateX(10px)} }
+
+        .card-buttons { display: flex; gap: 10px; }
+
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            letter-spacing: 1px;
+            transition: 0.2s;
+        }
+        .btn:active { transform: scale(0.93); }
+        .btn-check { background: linear-gradient(135deg, #4ade80, #22c55e); color: #fff; box-shadow: 0 6px 25px rgba(74,222,128,0.4); }
+        .btn-next { background: linear-gradient(135deg, #ffd93d, #f59e0b); color: #1a1a2e; box-shadow: 0 6px 25px rgba(255,217,61,0.4); }
+
+        #resultOverlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+            flex-direction: column;
+            gap: 14px;
+            padding: 20px;
+            border-radius: 20px;
+        }
+        #resultOverlay h1 { font-size: 36px; color: #fff; }
+        .final-score { font-size: 70px; font-weight: 800; color: #ffd93d; text-shadow: 0 0 60px rgba(255,217,61,0.8); }
+        .result-text { font-size: 20px; color: #e0d0f0; text-align: center; max-width: 500px; }
+        .btn-play-again {
+            padding: 16px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            font-family: inherit;
+            box-shadow: 0 8px 35px rgba(118,75,162,0.5);
+            letter-spacing: 1px;
+        }
+
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 25;
+            border-radius: 50%;
+            animation: particleFly 0.8s ease-out forwards;
+        }
+        @keyframes particleFly {
+            0% { transform: translate(0,0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+        }
+
+        #handCursor {
+            position: absolute;
+            width: 450px;
+            height: 450px;
+            pointer-events: none;
+            z-index: 50;
+            display: none;
+            transform: translate(-50%, -50%);
+        }
+
+        /* ============================================================
+           ADAPTIVE — TABLETS
+           ============================================================ */
+        @media (max-width: 768px) {
+            #mascotVideo video {
+                width: 300px;
+                height: 300px;
+            }
+            
+            .card {
+                padding: 16px 14px;
+            }
+            
+            .card-verb {
+                font-size: 36px;
+            }
+            
+            .card-input {
+                font-size: 20px;
+                padding: 10px;
+            }
+            
+            .btn {
+                padding: 12px;
+                font-size: 14px;
+            }
+            
+            #scorePopup {
+                font-size: 50px;
+            }
+            
+            #comboDisplay {
+                font-size: 50px;
+            }
+            
+            #recordPopup {
+                font-size: 35px;
+            }
+            
+            .final-score {
+                font-size: 50px;
+            }
+            
+            #levelProgressBar {
+                width: 80%;
+                top: 35px;
+            }
+            
+            .marker {
+                font-size: 8px;
+            }
+            
+            .marker.active {
+                font-size: 10px;
+            }
+        }
+
+        /* ============================================================
+           ADAPTIVE — PHONES (raise card when keyboard opens)
+           ============================================================ */
+        @media (max-width: 480px) {
+            #mascotVideo video {
+                width: 200px;
+                height: 200px;
+            }
+            
+            .card-verb {
+                font-size: 30px;
+            }
+            
+            .card-input {
+                font-size: 18px;
+                padding: 8px;
+            }
+            
+            #topBar {
+                padding: 6px 8px;
+            }
+            
+            #scoreDisplay {
+                font-size: 13px;
+            }
+            
+            #verbCounter {
+                font-size: 12px;
+            }
+            
+            #scorePopup {
+                font-size: 40px;
+            }
+            
+            #comboDisplay {
+                font-size: 40px;
+            }
+            
+            #messagePopup {
+                font-size: 30px;
+            }
+            
+            .btn {
+                padding: 10px;
+                font-size: 12px;
+            }
+            
+            #handCursor {
+                width: 300px;
+                height: 300px;
+            }
+            
+            #levelProgressBar {
+                width: 85%;
+                height: 10px;
+                top: 32px;
+            }
+            
+            .marker {
+                font-size: 7px;
+            }
+            
+            .marker.active {
+                font-size: 9px;
+            }
+
+            /* When keyboard is open (input focused) — raise the card */
+            #cardContainer.keyboard-open {
+                top: 32%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="topBar">
+            <span id="scoreDisplay">SCORE: 0</span>
+            <span id="verbCounter">1 / 30</span>
+        </div>
+
+        <div id="levelProgressBar">
+            <div id="levelFill"></div>
+            <div id="levelMarkers">
+                <span class="marker" style="left: 0%;">🥉 STARTER</span>
+                <span class="marker" style="left: 33%;">🥈 STRIKER</span>
+                <span class="marker" style="left: 66%;">🥇 MASTER</span>
+                <span class="marker" style="left: 100%;">💎 KING</span>
+            </div>
+        </div>
+
+        <div id="comboDisplay">COMBO x3!</div>
+        <div id="scorePopup">+5</div>
+        <div id="recordPopup">🏆 NEW RECORD!</div>
+        
+        <div id="levelUpPopup">
+            <div class="level-title">🎉 LEVEL UP!</div>
+            <div class="level-name" id="levelName">STRIKER</div>
+            <div class="level-bonus" id="levelBonus">+10 BONUS!</div>
+        </div>
+
+        <div id="mascotVideo">
+            <video id="wowVideo" width="500" height="500" playsinline>
+                <source src="wow.mp4" type="video/mp4">
+            </video>
+        </div>
+
+        <div id="messagePopup"></div>
+
+        <div id="cardContainer">
+            <div class="card">
+                <div class="card-verb" id="cardVerb">7 + 5 = ?</div>
+                <div class="card-hint" id="cardHint"></div>
+                <input type="text" class="card-input" id="cardInput" placeholder="Type the number in English..." autocomplete="off" spellcheck="false" inputmode="text">
+                <div class="card-buttons">
+                    <button class="btn btn-check" id="checkBtn">CHECK</button>
+                    <button class="btn btn-next" id="nextBtn" style="display:none;">NEXT →</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultOverlay">
+            <h1>🎳 GAME OVER!</h1>
+            <div class="final-score" id="finalScore">0</div>
+            <div class="result-text" id="resultText">Great job!</div>
+            <button class="btn-play-again" id="playAgainBtn">🔄 PLAY AGAIN</button>
+        </div>
+
+        <img id="handCursor" src="hand.png" alt="hand">
+    </div>
+
+    <script>
+        // ============================================================
+        //  NUMBER WORDS 11-20
+        // ============================================================
+        const NUMBER_WORDS = {
+            11: 'eleven',   12: 'twelve',    13: 'thirteen', 14: 'fourteen', 15: 'fifteen',
+            16: 'sixteen',  17: 'seventeen', 18: 'eighteen', 19: 'nineteen', 20: 'twenty'
+        };
+
+        // ============================================================
+        //  TASKS — 30 addition problems with answers 11–20
+        // ============================================================
+        const TASKS = [];
+        (function generateTasks() {
+            const pool = [];
+            for (let a = 2; a <= 18; a++) {
+                for (let b = 2; b <= 18; b++) {
+                    const sum = a + b;
+                    if (sum >= 11 && sum <= 20) pool.push({ a, b, answer: sum });
+                }
+            }
+            // shuffle
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+            for (const t of pool) {
+                if (TASKS.length >= 30) break;
+                TASKS.push(t);
+            }
+            while (TASKS.length < 30) {
+                const a = 2 + Math.floor(Math.random() * 17);
+                const b = 2 + Math.floor(Math.random() * 17);
+                const sum = a + b;
+                if (sum >= 11 && sum <= 20) TASKS.push({ a, b, answer: sum });
+            }
+        })();
+
+        // ============================================================
+        //  PIN COORDINATES
+        // ============================================================
+        const PIN_COORDS = [
+            { x: 454, y: 165, w: 108, h: 108 },
+            { x: 489, y: 163, w: 108, h: 108 },
+            { x: 528, y: 162, w: 108, h: 108 },
+            { x: 568, y: 165, w: 108, h: 108 },
+            { x: 471, y: 174, w: 108, h: 108 },
+            { x: 511, y: 172, w: 108, h: 108 },
+            { x: 551, y: 173, w: 108, h: 108 },
+            { x: 493, y: 189, w: 108, h: 108 },
+            { x: 532, y: 187, w: 108, h: 108 },
+            { x: 511, y: 208, w: 108, h: 108 }
+        ];
+
+        // ============================================================
+        //  BALL SIZE
+        // ============================================================
+        const BALL_WIDTH = 400;
+        const BALL_HEIGHT = 220;
+        const BALL_START_Y = 450;
+        const BALL_MID_Y = 310;
+        const BALL_PINS_Y = 200;
+        let ballCurrentWidth = BALL_WIDTH;
+        let ballCurrentHeight = BALL_HEIGHT;
+
+        // ============================================================
+        //  GAME STATE
+        // ============================================================
+        let score = 0;
+        let bestScore = parseInt(localStorage.getItem('bowlingNumbersBest')) || 0;
+        let taskIndex = 0;
+        let attempts = 0;
+        let gameActive = true;
+        let ballRolling = false;
+        let cardVisible = false;
+        let ballCurrentY = BALL_START_Y;
+        let ballAnimation = null;
+        let combo = 0;
+        let comboDisplayTimeout = null;
+        let totalCorrect = 0;
+        let totalWrong = 0;
+        let bestCombo = 0;
+        let isNewRecord = false;
+        let currentLevel = 0;
+
+        // ============================================================
+        //  SOUND EFFECTS (WebAudio beeps — no mp3 files needed)
+        // ============================================================
+        let audioContext = null;
+        function ensureAudio() {
+            if (!audioContext) {
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {}
+            }
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume().catch(() => {});
+            }
+        }
+
+        function playSound(type) {
+            ensureAudio();
+            if (!audioContext) return;
+            try {
+                switch(type) {
+                    case 'roll': {
+                        const osc = audioContext.createOscillator();
+                        const gain = audioContext.createGain();
+                        osc.connect(gain); gain.connect(audioContext.destination);
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(80, audioContext.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.8);
+                        gain.gain.setValueAtTime(0.12, audioContext.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+                        osc.start(); osc.stop(audioContext.currentTime + 0.8);
+                        break;
+                    }
+                    case 'wrong': {
+                        const osc = audioContext.createOscillator();
+                        const gain = audioContext.createGain();
+                        osc.connect(gain); gain.connect(audioContext.destination);
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(200, audioContext.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.3);
+                        gain.gain.setValueAtTime(0.15, audioContext.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                        osc.start(); osc.stop(audioContext.currentTime + 0.3);
+                        break;
+                    }
+                    case 'pins': {
+                        const osc = audioContext.createOscillator();
+                        const gain = audioContext.createGain();
+                        osc.connect(gain); gain.connect(audioContext.destination);
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(400, audioContext.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.2);
+                        gain.gain.setValueAtTime(0.35, audioContext.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                        osc.start(); osc.stop(audioContext.currentTime + 0.2);
+                        break;
+                    }
+                    case 'combo': {
+                        const osc = audioContext.createOscillator();
+                        const gain = audioContext.createGain();
+                        osc.connect(gain); gain.connect(audioContext.destination);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(600, audioContext.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.15);
+                        gain.gain.setValueAtTime(0.25, audioContext.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+                        osc.start(); osc.stop(audioContext.currentTime + 0.15);
+                        break;
+                    }
+                    case 'record': {
+                        [523, 659, 784, 1047].forEach((freq, i) => {
+                            const osc = audioContext.createOscillator();
+                            const gain = audioContext.createGain();
+                            osc.connect(gain); gain.connect(audioContext.destination);
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(freq, audioContext.currentTime + i * 0.15);
+                            gain.gain.setValueAtTime(0.3, audioContext.currentTime + i * 0.15);
+                            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + i * 0.15 + 0.4);
+                            osc.start(audioContext.currentTime + i * 0.15);
+                            osc.stop(audioContext.currentTime + i * 0.15 + 0.4);
+                        });
+                        break;
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // ============================================================
+        //  SPEECH SYNTHESIS (English TTS)
+        // ============================================================
+        let preferredVoice = null;
+        function loadVoices() {
+            if (!('speechSynthesis' in window)) return;
+            const voices = window.speechSynthesis.getVoices();
+            preferredVoice =
+                voices.find(v => v.lang === 'en-US' && /female|samantha|zira|google/i.test(v.name)) ||
+                voices.find(v => v.lang === 'en-US') ||
+                voices.find(v => v.lang && v.lang.startsWith('en')) ||
+                null;
+        }
+        if ('speechSynthesis' in window) {
+            loadVoices();
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
+        function speak(text, rate = 0.9, pitch = 1.05) {
+            if (!('speechSynthesis' in window)) return;
+            try {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'en-US';
+                u.rate = rate;
+                u.pitch = pitch;
+                u.volume = 1.0;
+                if (preferredVoice) u.voice = preferredVoice;
+                window.speechSynthesis.speak(u);
+            } catch (e) {}
+        }
+
+        function buildSpokenSentence(task, extra = '') {
+            const aWord = NUMBER_WORDS[task.a] || String(task.a);
+            const bWord = NUMBER_WORDS[task.b] || String(task.b);
+            const ansWord = NUMBER_WORDS[task.answer] || String(task.answer);
+            return `${aWord} plus ${bWord} is ${ansWord}.${extra ? ' ' + extra : ''}`;
+        }
+
+        // ============================================================
+        //  MASCOT VIDEO
+        // ============================================================
+        const wowVideo = document.getElementById('wowVideo');
+        const mascotVideo = document.getElementById('mascotVideo');
+
+        function showMascot() {
+            mascotVideo.style.display = 'block';
+            try { wowVideo.currentTime = 0; wowVideo.play().catch(() => {}); } catch (e) {}
+            setTimeout(() => {
+                mascotVideo.style.display = 'none';
+                try { wowVideo.pause(); } catch (e) {}
+            }, 8000);
+        }
+
+        // ============================================================
+        //  CANVAS
+        // ============================================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('gameContainer');
+
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // ============================================================
+        //  IMAGES
+        // ============================================================
+        const images = {};
+        const imageFiles = {
+            lane: 'lane.png',
+            ball: 'ball.png',
+            pinStand: 'pin-stand.png'
+        };
+        let imagesLoaded = 0;
+        const totalImages = Object.keys(imageFiles).length;
+
+        function preloadImages(callback) {
+            Object.entries(imageFiles).forEach(([key, src]) => {
+                const img = new Image();
+                img.onload = () => { images[key] = img; imagesLoaded++; if (imagesLoaded >= totalImages) callback(); };
+                img.onerror = () => { imagesLoaded++; if (imagesLoaded >= totalImages) callback(); };
+                img.src = src;
+            });
+        }
+
+        // ============================================================
+        //  MATTER.JS
+        // ============================================================
+        const { Engine, World, Bodies, Body, Composite, Events } = Matter;
+        const engine = Engine.create({ gravity: { x: 0, y: 1.2 } });
+        const world = engine.world;
+        let pins = [];
+
+        function scaleCoord(value, axis) {
+            const scaleX = canvas.width / 1024;
+            const scaleY = canvas.height / 576;
+            return axis === 'x' ? value * scaleX : value * scaleY;
+        }
+
+        function createPins() {
+            pins.forEach(p => Composite.remove(world, p.body));
+            pins = [];
+
+            PIN_COORDS.forEach((coord) => {
+                const x = scaleCoord(coord.x, 'x');
+                const y = scaleCoord(coord.y, 'y');
+                const w = scaleCoord(coord.w, 'x');
+                const h = scaleCoord(coord.h, 'y');
+
+                const body = Bodies.rectangle(x, y, w * 0.7, h * 0.9, {
+                    isStatic: true,
+                    restitution: 0.4,
+                    friction: 0.4,
+                    density: 0.002,
+                    label: 'pin'
+                });
+
+                pins.push({
+                    body, x, y, w, h,
+                    knocked: false,
+                    fallAngle: 0,
+                    fallSpeed: 0,
+                    fallOffsetY: 0
+                });
+                Composite.add(world, body);
+            });
+        }
+
+        function resetGame() {
+            score = 0;
+            taskIndex = 0;
+            attempts = 0;
+            combo = 0;
+            totalCorrect = 0;
+            totalWrong = 0;
+            bestCombo = 0;
+            isNewRecord = false;
+            currentLevel = 0;
+            gameActive = true;
+            ballRolling = false;
+            cardVisible = false;
+            ballCurrentY = BALL_START_Y;
+            ballCurrentWidth = BALL_WIDTH;
+            ballCurrentHeight = BALL_HEIGHT;
+            if (ballAnimation) cancelAnimationFrame(ballAnimation);
+            updateScore();
+            updateCounter();
+            updateLevelProgress();
+            createPins();
+            document.getElementById('cardContainer').style.display = 'none';
+            document.getElementById('resultOverlay').style.display = 'none';
+            document.getElementById('comboDisplay').style.display = 'none';
+            document.getElementById('scorePopup').style.display = 'none';
+            document.getElementById('recordPopup').style.display = 'none';
+            document.getElementById('levelUpPopup').style.display = 'none';
+            mascotVideo.style.display = 'none';
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        }
+
+        function updateScore() { 
+            document.getElementById('scoreDisplay').textContent = 'SCORE: ' + score; 
+        }
+        function updateCounter() { 
+            document.getElementById('verbCounter').textContent = (taskIndex + 1) + ' / ' + TASKS.length; 
+        }
+
+        function updateLevelProgress() {
+            const progress = (taskIndex / TASKS.length) * 100;
+            const fill = document.getElementById('levelFill');
+            fill.style.width = progress + '%';
+            
+            let color = '';
+            if (taskIndex < 10) color = '#00ff88';
+            else if (taskIndex < 20) color = '#00ccff';
+            else if (taskIndex < 30) color = '#ffdd00';
+            else color = '#cc00ff';
+            
+            fill.style.boxShadow = '0 0 20px ' + color;
+            fill.style.background = color;
+            
+            const markers = document.querySelectorAll('.marker');
+            const activeMarker = Math.floor(taskIndex / 10);
+            markers.forEach((marker, index) => {
+                if (index === activeMarker) {
+                    marker.classList.add('active');
+                    marker.style.color = color;
+                    marker.style.textShadow = '0 0 15px ' + color;
+                } else {
+                    marker.classList.remove('active');
+                    marker.style.color = 'rgba(255, 255, 255, 0.5)';
+                    marker.style.textShadow = 'none';
+                }
+            });
+        }
+
+        function showLevelUp(levelName, bonusPoints) {
+            spawnConfetti();
+            const popup = document.getElementById('levelUpPopup');
+            document.getElementById('levelName').textContent = levelName;
+            document.getElementById('levelBonus').textContent = '+' + bonusPoints + ' BONUS!';
+            
+            let color = '';
+            if (levelName === 'STRIKER') color = '#00ccff';
+            else if (levelName === 'MASTER') color = '#ffdd00';
+            else if (levelName === 'BOWLING KING') color = '#cc00ff';
+            
+            document.getElementById('levelName').style.color = color;
+            popup.style.display = 'block';
+            popup.style.animation = 'none';
+            setTimeout(() => { popup.style.animation = 'levelUpAnim 2s ease-out forwards'; }, 10);
+            setTimeout(() => { popup.style.display = 'none'; }, 2000);
+            playSound('record');
+        }
+
+        function showScorePopup(points) {
+            const popup = document.getElementById('scorePopup');
+            popup.textContent = '+' + points;
+            popup.style.display = 'block';
+            popup.style.animation = 'none';
+            setTimeout(() => { popup.style.animation = 'scorePopupAnim 1.2s ease-out forwards'; }, 10);
+            setTimeout(() => { popup.style.display = 'none'; }, 1200);
+        }
+
+        function showRecordPopup() {
+            const popup = document.getElementById('recordPopup');
+            popup.textContent = '🏆 NEW RECORD!';
+            popup.style.display = 'block';
+            popup.style.animation = 'none';
+            setTimeout(() => { popup.style.animation = 'recordPopupAnim 1.5s ease-out forwards'; }, 10);
+            setTimeout(() => { popup.style.display = 'none'; }, 1500);
+        }
+
+        function showCombo() {
+            if (combo >= 3) {
+                const comboDisplay = document.getElementById('comboDisplay');
+                comboDisplay.textContent = 'COMBO x' + combo + '!';
+                comboDisplay.style.display = 'block';
+                playSound('combo');
+                if (comboDisplayTimeout) clearTimeout(comboDisplayTimeout);
+                comboDisplayTimeout = setTimeout(() => {
+                    comboDisplay.style.display = 'none';
+                }, 1500);
+            }
+        }
+
+        function spawnConfetti() {
+            const colors = ['#ff6b6b', '#ffd93d', '#4ade80', '#3b82f6', '#a78bfa'];
+            for (let i = 0; i < 40; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                const size = 8 + Math.random() * 12;
+                p.style.width = size + 'px';
+                p.style.height = size + 'px';
+                p.style.left = (canvas.width / 2 + (Math.random() - 0.5) * 300) + 'px';
+                p.style.top = (canvas.height / 2) + 'px';
+                p.style.background = colors[Math.floor(Math.random() * colors.length)];
+                p.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                p.style.setProperty('--tx', (Math.random() * 400 - 200) + 'px');
+                p.style.setProperty('--ty', (Math.random() * 400 + 100) + 'px');
+                document.getElementById('gameContainer').appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+        }
+
+        function showMessage(text) {
+            const popup = document.getElementById('messagePopup');
+            popup.textContent = text;
+            popup.style.display = 'block';
+            setTimeout(() => { popup.style.display = 'none'; }, 800);
+        }
+
+        // ============================================================
+        //  ANIMATION
+        // ============================================================
+        function animateBallTo(targetY, duration, callback) {
+            const startY = ballCurrentY;
+            const startTime = Date.now();
+            const startWidth = ballCurrentWidth;
+            const startHeight = ballCurrentHeight;
+            
+            const targetWidth = targetY < BALL_MID_Y ? BALL_WIDTH * 0.4 : BALL_WIDTH;
+            const targetHeight = targetY < BALL_MID_Y ? BALL_HEIGHT * 0.4 : BALL_HEIGHT;
+
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                ballCurrentY = startY + (targetY - startY) * progress;
+                ballCurrentWidth = startWidth + (targetWidth - startWidth) * progress;
+                ballCurrentHeight = startHeight + (targetHeight - startHeight) * progress;
+                
+                if (progress < 1) {
+                    ballAnimation = requestAnimationFrame(animate);
+                } else {
+                    ballCurrentY = targetY;
+                    ballCurrentWidth = targetWidth;
+                    ballCurrentHeight = targetHeight;
+                    if (callback) callback();
+                }
+            }
+            animate();
+        }
+
+        // ============================================================
+        //  ROLL BALL → CARD
+        // ============================================================
+        function rollBall() {
+            if (!gameActive || ballRolling) return;
+            ballRolling = true;
+            ensureAudio();
+            playSound('roll');
+
+            animateBallTo(BALL_MID_Y, 800, () => {
+                showCard();
+            });
+        }
+
+        // ============================================================
+        //  CARD
+        // ============================================================
+        function showCard() {
+            if (taskIndex >= TASKS.length) { endGame(); return; }
+            cardVisible = true;
+            attempts = 0;
+            const task = TASKS[taskIndex];
+            document.getElementById('cardContainer').style.display = 'block';
+            document.getElementById('cardVerb').textContent = `${task.a} + ${task.b} = ?`;
+            document.getElementById('cardHint').textContent = '';
+            const input = document.getElementById('cardInput');
+            input.value = '';
+            input.className = 'card-input';
+            input.disabled = false;
+            input.placeholder = 'Type the number in English...';
+            document.getElementById('checkBtn').style.display = 'block';
+            document.getElementById('nextBtn').style.display = 'none';
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function checkAnswer() {
+            if (!cardVisible) return;
+            const input = document.getElementById('cardInput');
+            const userAnswer = input.value.trim().toLowerCase().replace(/\s+/g, '');
+            const task = TASKS[taskIndex];
+            const correctWord = NUMBER_WORDS[task.answer];
+
+            if (userAnswer === correctWord) {
+                // ✅ CORRECT
+                input.className = 'card-input correct';
+                input.disabled = true;
+                document.getElementById('checkBtn').style.display = 'none';
+                document.getElementById('nextBtn').style.display = 'block';
+
+                // Voice: full sentence + praise
+                speak(buildSpokenSentence(task, 'Well done!'), 0.9, 1.1);
+
+                combo++;
+                totalCorrect++;
+                bestCombo = Math.max(bestCombo, combo);
+                showCombo();
+                spawnConfetti();
+
+                let pinsToKnock = Math.floor(Math.random() * 3) + 1;
+                if (combo >= 3) pinsToKnock = Math.min(10, pinsToKnock + 3);
+                
+                const bonusPoints = combo >= 3 ? 2 : 0;
+                const totalPoints = pinsToKnock + bonusPoints;
+                score += totalPoints;
+                updateScore();
+                
+                const scoreElement = document.getElementById('scoreDisplay');
+                scoreElement.classList.add('bump');
+                setTimeout(() => scoreElement.classList.remove('bump'), 500);
+
+                document.getElementById('cardContainer').style.display = 'none';
+                cardVisible = false;
+
+                animateBallTo(BALL_PINS_Y, 600, () => {
+                    knockDownPins(pinsToKnock);
+                    playSound('pins');
+                    showScorePopup(totalPoints);
+
+                    const newLevel = Math.floor(taskIndex / 10);
+                    if (newLevel > currentLevel) {
+                        currentLevel = newLevel;
+                        let levelName = '';
+                        let bonus = 0;
+                        if (currentLevel === 1) { levelName = 'STRIKER'; bonus = 10; }
+                        else if (currentLevel === 2) { levelName = 'MASTER'; bonus = 15; }
+                        else if (currentLevel === 3) { levelName = 'BOWLING KING'; bonus = 20; }
+                        score += bonus;
+                        updateScore();
+                        showLevelUp(levelName, bonus);
+                    }
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        localStorage.setItem('bowlingNumbersBest', bestScore);
+                        isNewRecord = true;
+                        showRecordPopup();
+                        playSound('record');
+                    }
+
+                    setTimeout(() => { nextTask(); }, 2000);
+                });
+            } else {
+                // ❌ WRONG
+                combo = 0;
+                totalWrong++;
+                attempts++;
+                playSound('wrong');
+
+                if (attempts === 1) {
+                    // First mistake: hint + speak the correct answer
+                    input.className = 'card-input wrong';
+                    const hint = buildFirstLetterHint(correctWord);
+                    document.getElementById('cardHint').textContent = '💡 ' + hint;
+                    input.value = '';
+                    input.focus();
+                    showMessage('😅 Try again!');
+                    speak(buildSpokenSentence(task), 0.85, 1.0);
+                } else {
+                    // Second mistake: reveal answer + speak it
+                    input.className = 'card-input wrong';
+                    input.disabled = true;
+                    input.value = correctWord;
+                    document.getElementById('cardHint').textContent = '✅ Correct: ' + correctWord;
+                    document.getElementById('checkBtn').style.display = 'none';
+                    document.getElementById('nextBtn').style.display = 'block';
+                    showMessage('💪 Next time!');
+                    speak(buildSpokenSentence(task), 0.85, 1.0);
+                }
+            }
+        }
+
+        function buildFirstLetterHint(word) {
+            if (!word) return '';
+            let hint = word[0];
+            for (let i = 1; i < word.length; i++) hint += ' _';
+            return hint;
+        }
+
+        function knockDownPins(count) {
+            let knocked = 0;
+            pins.forEach(pin => {
+                if (knocked < count && !pin.knocked) {
+                    pin.knocked = true;
+                    knocked++;
+                    Body.setStatic(pin.body, false);
+                    const angle = (Math.random() - 0.5) * Math.PI * 0.5;
+                    Body.setVelocity(pin.body, {
+                        x: Math.cos(angle) * 4,
+                        y: -Math.sin(angle) * 3
+                    });
+                    Body.setAngularVelocity(pin.body, (Math.random() - 0.5) * 0.4);
+                    pin.fallSpeed = 0.08 + Math.random() * 0.15;
+                    pin.fallOffsetY = 0;
+                }
+            });
+        }
+
+        function nextTask() {
+            cardVisible = false;
+            document.getElementById('cardContainer').style.display = 'none';
+            taskIndex++;
+            if (taskIndex >= TASKS.length) { endGame(); return; }
+            updateCounter();
+            updateLevelProgress();
+            createPins();
+            ballRolling = false;
+            ballCurrentY = BALL_START_Y;
+            ballCurrentWidth = BALL_WIDTH;
+            ballCurrentHeight = BALL_HEIGHT;
+        }
+
+        function endGame() {
+            gameActive = false;
+            document.getElementById('cardContainer').style.display = 'none';
+            showMascot();
+            setTimeout(() => {
+                document.getElementById('resultOverlay').style.display = 'flex';
+                document.getElementById('finalScore').textContent = score;
+                
+                const accuracy = (totalCorrect + totalWrong) > 0 ? 
+                    Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100) : 0;
+                
+                let text = 'Accuracy: ' + accuracy + '% | Best Combo: x' + bestCombo;
+                if (isNewRecord) text += ' | 🏆 NEW RECORD!';
+                else if (accuracy >= 80) text += ' | 🌟 Excellent!';
+                else if (accuracy >= 50) text += ' | 👏 Good job!';
+                else text += ' | 💪 Keep practicing!';
+                
+                document.getElementById('resultText').textContent = text;
+            }, 3000);
+        }
+
+        // ============================================================
+        //  DRAW
+        // ============================================================
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (images.lane && images.lane.complete && images.lane.naturalWidth > 0) {
+                ctx.drawImage(images.lane, 0, 0, canvas.width, canvas.height);
+            } else {
+                const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                grad.addColorStop(0, '#8B6B4A');
+                grad.addColorStop(1, '#5A3F2A');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            pins.forEach(pin => {
+                const img = images.pinStand;
+
+                if (pin.knocked) {
+                    pin.fallAngle += pin.fallSpeed;
+                    if (pin.fallAngle > Math.PI / 2) pin.fallAngle = Math.PI / 2;
+                    pin.fallOffsetY = Math.sin(pin.fallAngle) * pin.h * 0.5;
+                    
+                    ctx.save();
+                    ctx.translate(pin.x, pin.y + pin.fallOffsetY);
+                    ctx.rotate(pin.fallAngle);
+                    if (img && img.complete && img.naturalWidth > 0) {
+                        ctx.drawImage(img, -pin.w / 2, -pin.h / 2, pin.w, pin.h);
+                    }
+                    ctx.restore();
+                } else {
+                    if (img && img.complete && img.naturalWidth > 0) {
+                        ctx.drawImage(img, pin.x - pin.w / 2, pin.y - pin.h / 2, pin.w, pin.h);
+                    }
+                }
+            });
+
+            const ballScreenX = scaleCoord(512, 'x');
+            const ballScreenY = scaleCoord(ballCurrentY, 'y');
+            const ballScreenW = scaleCoord(ballCurrentWidth, 'x');
+            const ballScreenH = scaleCoord(ballCurrentHeight, 'y');
+
+            if (images.ball && images.ball.complete && images.ball.naturalWidth > 0) {
+                ctx.drawImage(images.ball, ballScreenX - ballScreenW / 2, ballScreenY - ballScreenH / 2, ballScreenW, ballScreenH);
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // ============================================================
+        //  HAND CURSOR
+        // ============================================================
+        const handCursor = document.getElementById('handCursor');
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            const ballScreenX = scaleCoord(512, 'x');
+            const ballScreenY = scaleCoord(ballCurrentY, 'y');
+            const ballScreenW = scaleCoord(ballCurrentWidth, 'x');
+            const ballScreenH = scaleCoord(ballCurrentHeight, 'y');
+            
+            if (!ballRolling && 
+                Math.abs(mouseX - ballScreenX) < ballScreenW / 2 && 
+                Math.abs(mouseY - ballScreenY) < ballScreenH / 2) {
+                canvas.style.cursor = 'none';
+                handCursor.style.display = 'block';
+                handCursor.style.left = (e.clientX - container.getBoundingClientRect().left) + 'px';
+                handCursor.style.top = (e.clientY - container.getBoundingClientRect().top) + 'px';
+            } else {
+                canvas.style.cursor = 'default';
+                handCursor.style.display = 'none';
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            handCursor.style.display = 'none';
+        });
+
+        function handleBallThrow(clientX, clientY) {
+            if (ballRolling) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (clientX - rect.left) * (canvas.width / rect.width);
+            const mouseY = (clientY - rect.top) * (canvas.height / rect.height);
+            
+            const ballScreenX = scaleCoord(512, 'x');
+            const ballScreenY = scaleCoord(ballCurrentY, 'y');
+            const ballScreenW = scaleCoord(ballCurrentWidth, 'x');
+            const ballScreenH = scaleCoord(ballCurrentHeight, 'y');
+            
+            if (Math.abs(mouseX - ballScreenX) < ballScreenW / 2 && 
+                Math.abs(mouseY - ballScreenY) < ballScreenH / 2) {
+                rollBall();
+                handCursor.style.display = 'none';
+            }
+        }
+
+        canvas.addEventListener('click', (e) => {
+            ensureAudio();
+            handleBallThrow(e.clientX, e.clientY);
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            ensureAudio();
+            const touch = e.touches[0];
+            handleBallThrow(touch.clientX, touch.clientY);
+        }, { passive: false });
+
+        document.getElementById('checkBtn').addEventListener('click', () => { ensureAudio(); checkAnswer(); });
+        document.getElementById('nextBtn').addEventListener('click', nextTask);
+        document.getElementById('playAgainBtn').addEventListener('click', () => { ensureAudio(); resetGame(); });
+
+        const cardInputEl = document.getElementById('cardInput');
+        cardInputEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (document.getElementById('checkBtn').style.display !== 'none') checkAnswer();
+                else if (document.getElementById('nextBtn').style.display !== 'none') nextTask();
+            }
+        });
+
+        // Mobile: raise card when virtual keyboard opens
+        cardInputEl.addEventListener('focus', () => {
+            if (window.innerWidth <= 480) {
+                document.getElementById('cardContainer').classList.add('keyboard-open');
+            }
+        });
+        cardInputEl.addEventListener('blur', () => {
+            document.getElementById('cardContainer').classList.remove('keyboard-open');
+        });
+
+        // ============================================================
+        //  START
+        // ============================================================
+        preloadImages(() => {
+            resetGame();
+            draw();
+            (function matterLoop() {
+                Engine.update(engine, 1000 / 60);
+                requestAnimationFrame(matterLoop);
+            })();
+        });
+    </script>
+</body>
+</html>
